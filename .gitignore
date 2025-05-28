@@ -1,0 +1,23 @@
+# === Node.js ===
+node_modules/
+.env
+*.log
+npm-debug.log*
+
+# === Redis ===
+dump.rdb
+*.aof
+*.rdb
+appendonly.aof
+
+# === Python (yt-dlp subprocess) ===
+__pycache__/
+*.py[cod]
+
+# === IDEs ===
+.vscode/
+.idea/
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
