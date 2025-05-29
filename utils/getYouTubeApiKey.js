@@ -15,12 +15,16 @@ async function checkQuota(apiKey) {
     return response.status === 200; // ✅ Valid API Key
   } catch (error) {
     if (error.response?.status === 403) {
-      console.log(`⚠️ YouTube API Key Exhausted: ${apiKey}`);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`⚠️ YouTube API Key Exhausted: ${apiKey}`);
+      }
       usedKeys.add(apiKey);
       return false;
     }
     if (error.response?.status === 400) {
-      console.log(`❌ Invalid YouTube API Key: ${apiKey}`);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`❌ Invalid YouTube API Key: ${apiKey}`);
+      }
       usedKeys.add(apiKey);
       return false;
     }

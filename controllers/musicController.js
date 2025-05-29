@@ -38,7 +38,9 @@ async function getMP3(req, res) {
     // 🔁 Step 1: Redis Cache
     const cached = await getCachedSong(videoId);
     if (cached) {
-      console.log("✅ Redis cache hit.");
+      if (process.env.NODE_ENV === "development") {
+        console.log("✅ Redis cache hit.");
+      }
       res.json(cached);
       backgroundNextFetch(videoId, genre, artists, title, album, token);
       return;
@@ -48,8 +50,10 @@ async function getMP3(req, res) {
     const existing = await Song.findOne({ videoId });
     if (existing?.mp3Url && existing.expiresAt > new Date()) {
       if (existing?.mp3Url == "https://placeholder.mp3") {
-        console.log("✅ MongoDB cache hit.");
-        console.log("✅ Updating mp3.");
+        if (process.env.NODE_ENV === "development") {
+          console.log("✅ MongoDB cache hit.");
+          console.log("✅ Updating mp3.");
+        }
         const mp3 = await getYouTubeMP3(videoId);
         if (!mp3) return res.status(500).json({ error: "Failed to fetch MP3" });
 
@@ -67,7 +71,9 @@ async function getMP3(req, res) {
         );
         return res.json(existing);
       }
-      console.log("✅ MongoDB cache hit.");
+      if (process.env.NODE_ENV === "development") {
+        console.log("✅ MongoDB cache hit.");
+      }
       await cacheSong(videoId, existing.toObject());
       res.json(existing.toObject());
       backgroundNextFetch(videoId, genre, artists, title, album, token);
@@ -75,7 +81,9 @@ async function getMP3(req, res) {
     }
 
     // 🎶 Step 3: New Download
-    console.log("📥 Fetching new MP3...");
+    if (process.env.NODE_ENV === "development") {
+      console.log("📥 Fetching new MP3...");
+    }
     const mp3 = await getYouTubeMP3(videoId);
     if (!mp3) return res.status(500).json({ error: "Failed to fetch MP3" });
 
@@ -133,7 +141,7 @@ function backgroundNextFetch(videoId, genre, artists, title, album, token) {
 }
 
 // 🔄 Get Next Song
-async function fetchNextSong(videoId, genre, artist, title, album, token) {
+async function fetchNextSong(videoId, album, token) {
   const historyKey = "song_history_global";
   let history = (await getPlayedSongs(historyKey)) || [];
 
@@ -158,7 +166,9 @@ async function fetchNextSong(videoId, genre, artist, title, album, token) {
     if (candidates.length > 0) {
       nextSong = candidates[Math.floor(Math.random() * candidates.length)];
     } else {
-      console.log("🔁 No fresh recs, using related artist tracks...");
+      if (process.env.NODE_ENV === "development") {
+        console.log("🔁 No fresh recs, using related artist tracks...");
+      }
       const artistTracks = await getTopTracks(token);
       const fallback = artistTracks.filter((s) => !history.includes(s.title));
       if (fallback.length > 0) {
@@ -170,7 +180,9 @@ async function fetchNextSong(videoId, genre, artist, title, album, token) {
   }
 
   if (!nextSong) {
-    console.log("⚠️ Default fallback song (rickroll)");
+    if (process.env.NODE_ENV === "development") {
+      console.log("⚠️ Default fallback song (rickroll)");
+    }
     nextSong = {
       title: "No Recommendation Found",
       artist: "Unknown",
@@ -212,7 +224,9 @@ async function fetchNextSong(videoId, genre, artist, title, album, token) {
     await setPlayedSongs(historyKey, nextSong.title);
     await Song.findOneAndUpdate({ videoId }, { nextSongId: nextVideoId });
 
-    console.log(`✅ Next song cached: ${nextSong.title}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`✅ Next song cached: ${nextSong.title}`);
+    }
     return finalNext;
   } catch (err) {
     console.error("❌ YouTube fetch failed:", err.message);

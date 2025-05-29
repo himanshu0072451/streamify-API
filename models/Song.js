@@ -1,27 +1,3 @@
-// const mongoose = require("mongoose");
-
-// const SongSchema = new mongoose.Schema(
-//   {
-//     videoId: { type: String, required: true, unique: true }, // YouTube Video ID
-//     title: { type: String, required: true },
-//     artist: { type: [String], required: true },
-//     genre: { type: String },
-//     album: { type: String },
-//     albumCover: { type: String }, // URL to album cover
-//     duration: { type: Number, required: true }, // In seconds
-//     thumbnail: { type: String }, // YouTube Thumbnail URL
-//     mp3Url: { type: String, required: true }, // Cached MP3 URL
-//     expiresAt: { type: Date, required: true }, // Expiry time for MP3 URL
-//     nextSongId: { type: String },
-//   },
-//   { timestamps: true }
-// );
-
-// const Song = mongoose.model("Song", SongSchema);
-// module.exports = Song;
-
-// -----------------------------------------------------------------
-
 const mongoose = require("mongoose");
 
 const SongSchema = new mongoose.Schema(

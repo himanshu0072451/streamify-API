@@ -165,7 +165,9 @@ router.get("/search", extractSpotifyToken, async (req, res) => {
           "EX",
           REDIS_EXPIRY
         );
-        console.log("Songs inserted!");
+        if (process.env.NODE_ENV === "development") {
+          console.log("Songs inserted!");
+        }
       } catch (err) {
         console.error("❌ Cache or DB insert failed:", err.message || err);
       }
@@ -208,7 +210,10 @@ router.get("/GetId", async (req, res) => {
       // Redis Cache
       const redisCache = await redisClient.get(`search:${query}`);
       if (redisCache) {
-        console.log("✅ Redis cache hit:", query);
+        if (process.env.NODE_ENV === "development") {
+          console.log("✅ Redis cache hit:", query);
+        }
+
         results.push(JSON.parse(redisCache));
         continue;
       }
@@ -216,7 +221,9 @@ router.get("/GetId", async (req, res) => {
       // MongoDB Cache
       const existing = await Song.findOne({ query });
       if (existing) {
-        console.log("✅ MongoDB cache hit:", query);
+        if (process.env.NODE_ENV === "development") {
+          console.log("✅ MongoDB cache hit:", query);
+        }
         await redisClient.set(
           `search:${query}`,
           JSON.stringify(existing),
@@ -247,8 +254,7 @@ router.get("/GetId", async (req, res) => {
         results.push({ success: false, query, message: "No video found." });
         continue;
       }
-      console.log("Query: " + query);
-      // console.log("VideoData: " + JSON.stringify(video));
+
       const data = {
         success: true,
         query,

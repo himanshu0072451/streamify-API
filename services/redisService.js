@@ -38,7 +38,7 @@ async function setPlayedSongs(historyKey, title) {
     console.log("❌ Redis client is not initialized properly.");
     return;
   }
-  // console.log("Title: " + title);
+
   await redisClient.lPush(historyKey, title);
   await redisClient.lTrim(historyKey, 0, 4);
 }
