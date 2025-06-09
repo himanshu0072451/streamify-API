@@ -33,7 +33,7 @@ A powerful Node.js API that fetches songs using **yt-dlp** and **Spotify**, feat
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/streamify-API.git
+git clone https://github.com/himanshu0072451/streamify-API.git
 cd streamify-API
 
 # Install dependencies
