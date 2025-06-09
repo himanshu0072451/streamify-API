@@ -3,7 +3,7 @@ const router = express.Router();
 
 const { getMP3, fetchNextSong } = require("../controllers/musicController");
 const { getCacheUpNext } = require("../services/redisService");
-const  extractSpotifyToken  = require("../middleware/extractSpotifyToken");
+const extractSpotifyToken = require("../middleware/extractSpotifyToken");
 
 // 🔉 GET: /api/getmp3?q=songTitleOrVideoId
 router.get("/getmp3", extractSpotifyToken, getMP3);
