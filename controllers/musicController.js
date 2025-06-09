@@ -141,7 +141,7 @@ function backgroundNextFetch(videoId, genre, artists, title, album, token) {
 }
 
 // 🔄 Get Next Song
-async function fetchNextSong(videoId, album, token) {
+async function fetchNextSong(videoId, genre, artist, title, album, token) {
   const historyKey = "song_history_global";
   let history = (await getPlayedSongs(historyKey)) || [];
 
