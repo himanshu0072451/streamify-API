@@ -56,6 +56,28 @@ async function cacheGenres(artistName, genres, expiresIn = 86400) {
   );
 }
 
+// Fallback caching Tracks (Top -50 India)
+const getCachedFallback = async (key) => {
+  const data = await redisClient.get(key);
+  return data ? JSON.parse(data) : null;
+};
+
+const cacheFallback = async (key, tracks) => {
+  await redisClient.set(key, JSON.stringify(tracks), {
+    EX: 60 * 60 * 6,
+  }); // 6 hours
+};
+
+//Top -50 India
+const cachePlaylistId = async (key, id) => {
+  await redisClient.set(key, id, { EX: 604800 });
+};
+
+const getCachedPlaylistId = async (key) => {
+  let res = redisClient.get(key);
+  return res ? res : null;
+};
+
 module.exports = {
   getCachedSong,
   cacheSong,
@@ -65,4 +87,8 @@ module.exports = {
   setPlayedSongs,
   getCachedGenres,
   cacheGenres,
+  getCachedFallback,
+  cacheFallback,
+  cachePlaylistId,
+  getCachedPlaylistId,
 };
