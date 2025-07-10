@@ -2,7 +2,14 @@
 const axios = require("axios");
 const getSpotifyToken = require("../utils/GetSpotifyToken");
 const getGenresFromSpotify = require("../utils/getGenresFromSpotify");
-const { getCachedGenres, cacheGenres } = require("../services/redisService");
+const {
+  getCachedGenres,
+  cacheGenres,
+  cacheFallback,
+  getCachedFallback,
+  cachePlaylistId,
+  getCachedPlaylistId,
+} = require("../services/redisService");
 const pLimit = require("p-limit").default;
 
 require("dotenv").config();
@@ -84,6 +91,12 @@ async function getPersonalizedRecommendations(genres = [], year = null, token) {
       ...topTracksLong,
     ];
 
+    // If user has no history → use fallback
+    if (allTracks.length === 0) {
+      const fallbackTracks = await getFallbackTracks(); // new helper
+      return fallbackTracks;
+    }
+
     if (genres.length === 0) {
       return allTracks.sort((a, b) => b.popularity - a.popularity).slice(0, 50);
     }
@@ -125,17 +138,98 @@ async function getPersonalizedRecommendations(genres = [], year = null, token) {
       .sort((a, b) => b.popularity - a.popularity)
       .slice(0, 50);
   } catch (err) {
-    console.error(
-      "❌ Failed to generate personalized recommendations:",
-      err.message
-    );
+    console.error("❌ Failed to generate personalized recommendations:", err);
     return [];
   }
 }
+
+const getFallbackTracks = async () => {
+  const searchQuery = "Top 50 - India";
+  const playlistIdKey = "spotify:top50_india:playlistId";
+  const tracksKey = "spotify:top50_india:tracks";
+
+  try {
+    // 1. Try to get cached tracks
+    let cachedTracks = await getCachedFallback(tracksKey);
+    if (cachedTracks) return cachedTracks;
+
+    // 2. Try to get cached playlist ID
+    let cachedPlaylistId = await getCachedPlaylistId(playlistIdKey);
+
+    // 3. If playlist ID not cached, search it
+    if (!cachedPlaylistId) {
+      if (NODE_ENV === "development") {
+        console.log("🔍 Searching playlist on Spotify...");
+      }
+
+      const searchRes = await axios.get(
+        `https://spotify23.p.rapidapi.com/search/?q=${encodeURIComponent(
+          searchQuery
+        )}&type=playlists&offset=0&limit=10&numberOfTopResults=5`,
+        {
+          headers: {
+            "x-rapidapi-host": "spotify23.p.rapidapi.com",
+            "x-rapidapi-key": process.env.RAPIDAPI_KEY,
+          },
+        }
+      );
+
+      const playlists = searchRes.data.playlists.items;
+
+      const exactMatch = playlists.find(
+        (p) =>
+          p.data.name.trim().toLowerCase() === searchQuery.toLowerCase() &&
+          p.data.owner.name.toLowerCase() === "spotify"
+      );
+
+      if (!exactMatch) throw new Error("Playlist not found!");
+
+      cachedPlaylistId = exactMatch.data.uri.split(":").pop();
+
+      // Cache playlist ID for 1 week
+      await cachePlaylistId(playlistIdKey, cachedPlaylistId, 604800);
+    }
+
+    // 4. Fetch playlist tracks
+    const tracksRes = await axios.get(
+      `https://spotify23.p.rapidapi.com/playlist_tracks/?id=${cachedPlaylistId}&offset=0&limit=100`,
+      {
+        headers: {
+          "x-rapidapi-host": "spotify23.p.rapidapi.com",
+          "x-rapidapi-key": process.env.RAPIDAPI_KEY,
+        },
+      }
+    );
+
+    const tracks = tracksRes.data.items.map((item) => ({
+      id: item.track.id,
+      title: item.track.name,
+      artist: item.track.artists.map((a) => a.name).join(", "),
+      url: item.track.external_urls.spotify,
+      album: item.track.album.name,
+      thumbnail:
+        item.track.album.images[0]?.url || item.track.album.images[1]?.url,
+      preview_url: item?.track?.preview_url || "",
+      duration_ms: item.track.duration_ms,
+    }));
+
+    // 5. Cache tracks for 1 day or more if desired
+    await cacheFallback(tracksKey, tracks, 86400); // 1 day
+    if (NODE_ENV === development) {
+      console.log(`✅ Fetched and cached ${tracks.length} tracks.`);
+    }
+
+    return tracks;
+  } catch (err) {
+    console.error("❌ Error in getFallbackTracks:", err.message);
+    return null;
+  }
+};
 
 module.exports = {
   getSpotifyToken,
   getRecentlyPlayedTracks,
   getTopTracks,
   getPersonalizedRecommendations,
+  getFallbackTracks,
 };
