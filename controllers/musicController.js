@@ -13,6 +13,7 @@ const {
 const {
   getPersonalizedRecommendations,
   getTopTracks,
+  getFallbackTracks,
 } = require("../services/spotifyService");
 const getApiKey = require("../utils/getYouTubeApiKey");
 const axios = require("axios");
@@ -161,18 +162,28 @@ async function fetchNextSong(videoId, genre, artist, title, album, token) {
       year,
       token
     );
-    const candidates = recs.filter((s) => !history.includes(s.title));
-
-    if (candidates.length > 0) {
-      nextSong = candidates[Math.floor(Math.random() * candidates.length)];
-    } else {
-      if (process.env.NODE_ENV === "development") {
-        console.log("🔁 No fresh recs, using related artist tracks...");
+    if (recs) {
+      const candidates = recs.filter((s) => !history.includes(s.title));
+      if (candidates.length > 0) {
+        nextSong = candidates[Math.floor(Math.random() * candidates.length)];
       }
-      const artistTracks = await getTopTracks(token);
-      const fallback = artistTracks.filter((s) => !history.includes(s.title));
-      if (fallback.length > 0) {
-        nextSong = fallback[Math.floor(Math.random() * fallback.length)];
+    } else {
+      const fallbackTracks = await getFallbackTracks();
+      const candidates = fallbackTracks.filter(
+        (s) => !history.includes(s.title)
+      );
+      if (candidates.length > 0) {
+        nextSong = candidates[Math.floor(Math.random() * candidates.length)];
+        console.log("nextSong: " + nextSong);
+      } else {
+        if (process.env.NODE_ENV === "development") {
+          console.log("No fresh recs, using related artist tracks...");
+        }
+        const artistTracks = await getTopTracks(token);
+        const fallback = artistTracks.filter((s) => !history.includes(s.title));
+        if (fallback.length > 0) {
+          nextSong = fallback[Math.floor(Math.random() * fallback.length)];
+        }
       }
     }
   } catch (err) {
