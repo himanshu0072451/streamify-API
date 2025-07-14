@@ -169,10 +169,11 @@ async function fetchNextSong(videoId, genre, artist, title, album, token) {
       }
     } else {
       const fallbackTracks = await getFallbackTracks();
-      const candidates = fallbackTracks.filter(
-        (s) => !history.includes(s.title)
-      );
-      if (candidates.length > 0) {
+      if (fallbackTracks) {
+        const candidates = fallbackTracks.filter(
+          (s) => !history.includes(s.title)
+        );
+
         nextSong = candidates[Math.floor(Math.random() * candidates.length)];
         console.log("nextSong: " + nextSong);
       } else {
