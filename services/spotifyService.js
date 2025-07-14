@@ -158,7 +158,7 @@ const getFallbackTracks = async () => {
 
     // 3. If playlist ID not cached, search it
     if (!cachedPlaylistId) {
-      if (NODE_ENV === "development") {
+      if (process.env.NODE_ENV === "development") {
         console.log("🔍 Searching playlist on Spotify...");
       }
 
@@ -214,8 +214,8 @@ const getFallbackTracks = async () => {
     }));
 
     // 5. Cache tracks for 1 day or more if desired
-    await cacheFallback(tracksKey, tracks, 86400); // 1 day
-    if (NODE_ENV === development) {
+    await cacheFallback(tracksKey, tracks, 86400); // 1 day2
+    if (process.env.NODE_ENV === development) {
       console.log(`✅ Fetched and cached ${tracks.length} tracks.`);
     }
 
