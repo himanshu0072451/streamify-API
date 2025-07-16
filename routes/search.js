@@ -2,13 +2,20 @@ const express = require("express");
 const axios = require("axios");
 const Redis = require("ioredis");
 const Song = require("../models/Song");
+const util = require("util");
+const exec = util.promisify(require("child_process").exec);
 
 const getApiKey = require("../utils/getYouTubeApiKey");
 
 const extractSpotifyToken = require("../middleware/extractSpotifyToken");
 
+const execPromise = util.promisify(exec);
 const router = express.Router();
 const redisClient = new Redis(process.env.REDIS_URL);
+const {
+  getPlayableTracks,
+  cachePlaybaleTracks,
+} = require("../services/redisService");
 
 // Constants
 const REDIS_EXPIRY = 60 * 60 * 6; // 6 hours
@@ -282,6 +289,100 @@ router.get("/GetId", async (req, res) => {
       error.response?.data || error.message
     );
     res.status(500).json({ success: false, message: "YouTube search failed." });
+  }
+});
+
+router.post("/GetTrack", async (req, res) => {
+  const songs = req.body;
+
+  if (!Array.isArray(songs) || songs.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Request body must be an array of { title, artist } objects.",
+    });
+  }
+
+  try {
+    const results = await Promise.allSettled(
+      songs.map(async ({ title, artist }) => {
+        const query = `${title} ${artist}`;
+
+        // 🔹 Redis cache check
+        const cached = await getPlayableTracks(query);
+        if (cached) {
+          if (process.env.NODE_ENV === "development") {
+            console.log("✅ Redis hit:", query);
+          }
+          return cached;
+        }
+
+        // 🔹 YouTube API Search
+        const ytRes = await axios.get(
+          "https://www.googleapis.com/youtube/v3/search",
+          {
+            params: {
+              q: query,
+              part: "snippet",
+              maxResults: 1,
+              key: await getApiKey(),
+              type: "video",
+            },
+          }
+        );
+
+        const video = ytRes.data.items?.[0];
+        if (!video) {
+          return {
+            success: false,
+            query,
+            message: "No video found on YouTube.",
+          };
+        }
+
+        const videoId = video.id.videoId;
+        let audioUrl = null;
+
+        // 🔹 yt-dlp to get audio stream URL
+        try {
+          const { stdout } = await execPromise(
+            `yt-dlp -f bestaudio --get-url "https://www.youtube.com/watch?v=${videoId}"`
+          );
+          audioUrl = stdout.trim();
+        } catch (err) {
+          console.warn(`❌ yt-dlp failed for ${query}:`, err.message);
+        }
+
+        const data = {
+          success: true,
+          query,
+          videoId,
+          artist,
+          title: video.snippet.title,
+          thumbnail: video.snippet.thumbnails?.high?.url,
+          audioUrl: audioUrl || null,
+        };
+
+        // 🔹 Cache result
+        await cachePlaybaleTracks(query, data, 3600); // 1 hour
+
+        return data;
+      })
+    );
+
+    const finalResults = results.map((result) =>
+      result.status === "fulfilled"
+        ? result.value
+        : {
+            success: false,
+            message: "Processing failed.",
+            error: result.reason?.message || "Unknown error",
+          }
+    );
+
+    res.json({ success: true, results: finalResults });
+  } catch (error) {
+    console.error("🔥 Fatal Error:", error.message || error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
 
